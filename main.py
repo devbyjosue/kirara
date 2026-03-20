@@ -1,18 +1,20 @@
-from modules.x_spider import XSpider
-from scrapy.crawler import CrawlerProcess
+from modules.spider import run_spider
 
 
-SAMPLE_URL = "https://twitter.com/lu_aux_fraises/status/2032707439154348344"
-
+sample = [
+    {
+        'url': 'https://twitter.com/AlertaMundoNews/status/2034032012953002006',
+        'file_type': 'video',
+        'file_format': 'mp4'
+    },
+    {
+        'url': 'https://twitter.com/GeddyJaibo/status/2034337288633606515',
+        'file_type': 'image',
+        'file_format': 'jpg'
+    }
+]
 def main():
-    process = CrawlerProcess(settings={
-        "FEEDS": {
-            "items.json": {"format": "json"}, 
-        },
-        "LOG_LEVEL": "INFO", 
-    })
-    process.crawl(XSpider)
-    process.start()
+    run_spider(sample)
 
 
 
