@@ -1,3 +1,5 @@
+import multiprocessing
+
 import scrapy
 from scrapy.crawler import CrawlerProcess
 from scrapy_playwright.page import PageMethod
@@ -55,7 +57,8 @@ class XSpider(scrapy.Spider):
                                 "playwright_page_methods": [
                                     PageMethod("wait_for_selector", 'video[tabindex="-1"]' if format_t == 'video' else 'img[alt="Image"]' , timeout=20000),
                                 ],
-                                "format_type": format_t
+                                "format_type": format_t,
+                                "save_path": request.get('save_path')
                             }
                         )
                     case 'instagram':
@@ -67,7 +70,8 @@ class XSpider(scrapy.Spider):
                                 "playwright_page_methods": [
                                     PageMethod("wait_for_selector", 'video' if format_t == 'video' else 'img' , timeout=20000),
                                 ],
-                                "format_type": format_t
+                                "format_type": format_t,
+                                "save_path": request.get('save_path')
                             }
                         )
                     case 'youtube':
@@ -75,7 +79,8 @@ class XSpider(scrapy.Spider):
                             url=url,
                             callback=self.parse,
                             meta={
-                                "format_type": format_t
+                                "format_type": format_t,
+                                "save_path": request.get('save_path')
                             }
                         )
                     case 'facebook':
@@ -87,7 +92,9 @@ class XSpider(scrapy.Spider):
                                 "playwright_page_methods": [
                                     PageMethod("wait_for_selector", 'video' if format_t == 'video' else 'img' , timeout=20000),
                                 ],
-                                "format_type": format_t
+                                "format_type": format_t,
+                                "save_path": request.get('save_path')
+
                             }
                         )
             except Exception as e:
@@ -152,8 +159,11 @@ class XSpider(scrapy.Spider):
     def handle_yt_file(self, response, format_type):
         """Tal vez agregar descargar el tumbmail"""
         data = {}
+        save_path = response.meta.get("save_path", "")
         if format_type == 'video':
-            with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
+            custom_ydtl_options = self.ydl_opts.copy()
+            custom_ydtl_options['outtmpl'] = save_path
+            with yt_dlp.YoutubeDL(custom_ydtl_options) as ydl:
                 try:
                     info_dict = ydl.extract_info(response.url, download=True)
                     video_url = info_dict.get("url", None)
@@ -179,7 +189,10 @@ class XSpider(scrapy.Spider):
     def handle_fb_file(self, response, format_type):
         data = {}
         if format_type == 'video':
-            with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
+            save_path = response.meta.get("save_path", "")
+            custom_ydl_opts = self.ydl_opts.copy()
+            custom_ydl_opts['outtmpl'] = save_path
+            with yt_dlp.YoutubeDL(custom_ydl_opts) as ydl:
                 try:
                     info_dict = ydl.extract_info(response.url, download=True)
                     video_url = info_dict.get("url", None)
@@ -223,22 +236,27 @@ class XSpider(scrapy.Spider):
             print("="*30 + "\n")
 
             if data['image_url']:
-                folder_dir = self.imgs_dir
-                if not os.path.exists(folder_dir):
-                    os.makedirs(folder_dir, exist_ok=True)
-                filename = os.path.basename(data['image_url'].split('/')[-1].split('?')[0])
-                if '.' not in filename:
-                    filename += '.png'
+                # folder_dir = self.imgs_dir
+                # if not os.path.exists(folder_dir):
+                #     os.makedirs(folder_dir, exist_ok=True)
+                # filename = os.path.basename(data['image_url'].split('/')[-1].split('?')[0])
+                # if '.' not in filename:
+                #     filename += '.png'
 
-                complete_path = os.path.join(folder_dir, filename)
-                if os.path.exists(complete_path):
-                    filename = os.path.basename(uuid.uuid4().hex + '_' + filename)
+                # complete_path = os.path.join(folder_dir, filename)
+                # if os.path.exists(complete_path):
+                #     filename = os.path.basename(uuid.uuid4().hex + '_' + filename)
+
+                complete_path = response.meta.get("save_path")
                 print(f"Descargando imagen en: {complete_path} ")
                 
                 self.download_image(data['image_url'], complete_path)
 
         elif format_type == 'video':
-            with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
+            save_path = response.meta.get("save_path", "")
+            custom_ydl_opts = self.ydl_opts.copy()
+            custom_ydl_opts['outtmpl'] = save_path
+            with yt_dlp.YoutubeDL(custom_ydl_opts) as ydl:
                 try:
                     info_dict = ydl.extract_info(response.url, download=True)
                     video_url = info_dict.get("url", None)
@@ -282,22 +300,25 @@ class XSpider(scrapy.Spider):
             print("="*30 + "\n")
 
             if data['image_url']:
-                folder_dir = self.imgs_dir
-                if not os.path.exists(folder_dir):
-                    os.makedirs(folder_dir, exist_ok=True)
-                filename = os.path.basename(data['image_url'].split('/')[-1].split('?')[0])
-                if '.' not in filename:
-                    filename += '.png'
+                # folder_dir = self.imgs_dir
+                # if not os.path.exists(folder_dir):
+                #     os.makedirs(folder_dir, exist_ok=True)
+                # filename = os.path.basename(data['image_url'].split('/')[-1].split('?')[0])
+                # if '.' not in filename:
+                #     filename += '.png'
 
-                complete_path = os.path.join(folder_dir, filename)
-                if os.path.exists(complete_path):
-                    filename = os.path.basename(uuid.uuid4().hex + '_' + filename)
+                # complete_path = os.path.join(folder_dir, filename)
+                # if os.path.exists(complete_path):
+                #     filename = os.path.basename(uuid.uuid4().hex + '_' + filename)
                 print(f"Descargando imagen en: {complete_path} ")
-                
+                complete_path = response.meta.get("save_path")
                 self.download_image(data['image_url'], complete_path)
 
         elif format_type == 'video':
-            with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
+            save_path = response.meta.get("save_path", "")
+            custom_ydl_opts = self.ydl_opts.copy()
+            custom_ydl_opts['outtmpl'] = save_path
+            with yt_dlp.YoutubeDL(custom_ydl_opts) as ydl:
                 try:
                     info_dict = ydl.extract_info(response.url, download=True)
                     video_url = info_dict.get("url", None)
@@ -348,7 +369,7 @@ class XSpider(scrapy.Spider):
             print(f"Error downloading image: {e}")
 
 
-def run_spider(requests=None):
+def _run_spider_process(requests):
     if requests is None:
         print("No se proporcionaron solicitudes para el spider.")
         return
@@ -362,7 +383,7 @@ def run_spider(requests=None):
         
         "PLAYWRIGHT_BROWSER_TYPE": "chromium",
         "PLAYWRIGHT_LAUNCH_OPTIONS": {
-            "headless": False, 
+            "headless": True, 
         },
         "LOG_LEVEL": "INFO",
         "FEEDS": {
@@ -376,3 +397,9 @@ def run_spider(requests=None):
         process.start()
     except Exception as e:
         print(e)
+
+def run_spider(requests=None):
+    print("Iniciando proceso del spider...")
+    p = multiprocessing.Process(target=_run_spider_process, args=(requests,))
+    p.start()
+    p.join()

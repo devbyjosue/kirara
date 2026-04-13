@@ -1,5 +1,67 @@
+import os
+import uuid
 from modules.spider import run_spider
+from fastapi import FastAPI, BackgroundTasks
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 
+
+app = FastAPI()
+
+origins = [
+    "http://localhost",
+    "http://localhost:4321",
+    "http://127.0.0.1:4321",
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
+)
+
+
+@app.get("/")
+def test():
+    return {"message": "Hello World"}
+
+def remove_file(path: str):
+    """Cleanup task to delete the temporary file."""
+    if os.path.exists(path):
+        os.remove(path)
+
+@app.post("/download")
+def download(data: dict, background_tasks: BackgroundTasks):
+    unique_id = uuid.uuid4().hex
+    
+    url = data.get("url", [])
+    platform = data.get("platform", "")
+
+    ext = data.get("file_format", "mp4")
+    file_type = data.get("file_type", "video")
+    
+    folder = "temp/videos" if file_type == "video" else "temp/imgs"
+    os.makedirs(folder, exist_ok=True)
+    
+    target_filename = f"{unique_id}.{ext}"
+    target_path = os.path.join(folder, target_filename)
+
+    raw_data = {
+        "url": url,
+        "platform": platform,
+        "file_type": file_type,
+        "file_format": data.get("file_format", "mp4"),
+        "save_path": target_path
+    }
+
+    run_spider([raw_data])
+    if not os.path.exists(target_path):
+        return {"message": "Video not found"}
+    
+    media_type = f"video/{ext}" if file_type == "video" else f"image/{ext}"
+    return FileResponse(target_path, media_type=media_type, filename=target_filename)
 
 sample = [
     # {
@@ -44,4 +106,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    pass
