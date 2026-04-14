@@ -24,7 +24,14 @@ class XSpider(scrapy.Spider):
         'outtmpl': os.path.join(videos_dir, '%(title)s.%(ext)s'),
         'merge_output_format': 'mp4',
         'download': True,
-        'verbose':True,
+        'verbose': True,
+        'postprocessors': [{
+            'key': 'FFmpegVideoConvertor',
+            'preferedformat': 'mp4',
+        }],
+        'postprocessor_args': {
+            'ffmpeg': ['-c:v', 'libx264', '-c:a', 'aac', '-pix_fmt', 'yuv420p']
+        }
     }
 
     def __init__(self, requests=None, *args, **kwargs):
@@ -97,6 +104,19 @@ class XSpider(scrapy.Spider):
 
                             }
                         )
+                    case 'tiktok':
+                        yield scrapy.Request(
+                            url=url,
+                            callback=self.parse,
+                            meta={
+                                "playwright": True,
+                                "playwright_page_methods": [
+                                    PageMethod("wait_for_selector", 'video' if format_t == 'video' else 'img' , timeout=20000),
+                                ],
+                                "format_type": format_t,
+                                "save_path": request.get('save_path')
+                            }
+                        )
             except Exception as e:
                 self.logger.error(f"Error al enviar solicitud para {request.get('url')}: {e}")
 
@@ -153,8 +173,79 @@ class XSpider(scrapy.Spider):
             case 'youtube':
                 self.logger.info("Procesando contenido de YouTube...")
                 data = self.handle_yt_file(response, format_type)
+            case 'tiktok':
+                self.logger.info("Procesando contenido de TikTok...")
+                data = self.handle_tiktok_file(response, format_type)
+            case _:
+                self.logger.warning(f"Dominio no soportado para procesamiento: {self.domain}")
 
         yield data
+
+    
+    def handle_tiktok_file(self, response, format_type):
+        data = {}
+        if format_type == 'image':        
+            image_url = (
+                response.css('img[alt="Image"]::attr(src)').get() or 
+                response.css('img.css-9pa8cd::attr(src)').get()
+            )
+
+            data = {
+                'url': response.url,
+                'title': response.css('title::text').get(),
+                'content': response.css('div[data-testid="tweetText"] ::text').getall(),
+                'image_url': image_url,
+            }
+
+            print("\n" + "="*30) 
+            print(f"RESULTADO ENCONTRADO:")
+            print(f"IMAGEN: {data['image_url']}")
+            print(f"TEXTO: {''.join(data['content'][:50])}...")
+            print("="*30 + "\n")
+
+            if data['image_url']:
+                # folder_dir = self.imgs_dir
+                # if not os.path.exists(folder_dir):
+                #     os.makedirs(folder_dir, exist_ok=True)
+                # filename = os.path.basename(data['image_url'].split('/')[-1].split('?')[0])
+                # if '.' not in filename:
+                #     filename += '.png'
+
+                # complete_path = os.path.join(folder_dir, filename)
+                # if os.path.exists(complete_path):
+                #     filename = os.path.basename(uuid.uuid4().hex + '_' + filename)
+                print(f"Descargando imagen en: {complete_path} ")
+                complete_path = response.meta.get("save_path")
+                self.download_image(data['image_url'], complete_path)
+
+        elif format_type == 'video':
+            save_path = response.meta.get("save_path", "")
+            custom_ydl_opts = self.ydl_opts.copy()
+            custom_ydl_opts['outtmpl'] = save_path
+            with yt_dlp.YoutubeDL(custom_ydl_opts) as ydl:
+                try:
+                    info_dict = ydl.extract_info(response.url, download=True)
+                    video_url = info_dict.get("url", None)
+                    data = {
+                        'url': response.url,
+                        'title': info_dict.get('title', None),
+                        'content': response.css('div[data-testid="tweetText"] ::text').getall(),
+                        'video_url': video_url,
+                    }
+
+                    print("\n" + "="*30)
+                    print(f"RESULTADO ENCONTRADO:")
+                    print(f"VIDEO: {data['video_url']}")
+                    print(f"TEXTO: {''.join(data['content'][:50])}...")
+                    print("="*30 + "\n")
+                    
+                except Exception as e:
+                    print(f"Error al extraer video con yt-dlp: {e}")
+
+
+        return data
+
+
 
     def handle_yt_file(self, response, format_type):
         """Tal vez agregar descargar el tumbmail"""
