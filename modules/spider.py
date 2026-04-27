@@ -46,7 +46,6 @@ class XSpider(scrapy.Spider):
         for request in self.requests_list:
             self.logger.info(f"Enviando solicitud para: {request.get('url')}")
             self.logger.info(f"Tipo de archivo: {request.get('file_type', 'image')}")
-            # self.file_type = 
             try:
                 format_t = request.get('file_type', 'image')
                 url = request.get('url')
@@ -120,37 +119,6 @@ class XSpider(scrapy.Spider):
             except Exception as e:
                 self.logger.error(f"Error al enviar solicitud para {request.get('url')}: {e}")
 
-    # def scrap_initialize(self, request):
-    #     format_t = request.get('file_type', 'image')
-    #     url = request.get('url')
-
-    #     self.domain = identify_domain(url)
-
-    #     match self.domain:
-    #         case 'x':
-    #             yield scrapy.Request(
-    #                 url=url,
-    #                 callback=self.parse,
-    #                 meta={
-    #                     "playwright": True,
-    #                     "playwright_page_methods": [
-    #                         PageMethod("wait_for_selector", 'video[tabindex="-1"]' if format_t == 'video' else 'img[alt="Image"]' , timeout=20000),
-    #                     ],
-    #                     "format_type": format_t
-    #                 }
-    #             )
-    #         case 'instagram':
-    #             yield scrapy.Request(
-    #                 url=url,
-    #                 callback=self.parse,
-    #                 meta={
-    #                     "playwright": True,
-    #                     "playwright_page_methods": [
-    #                         PageMethod("wait_for_selector", 'video' if format_t == 'video' else '//div[role="button"]//img[alt="Image"]' , timeout=20000),
-    #                     ],
-    #                     "format_type": format_t
-    #                 }
-    #             )
 
     def parse(self, response):
         self.logger.info(f"✅ Renderizado completo para: {response.url}")
@@ -181,7 +149,7 @@ class XSpider(scrapy.Spider):
 
         yield data
 
-    
+
     def handle_tiktok_file(self, response, format_type):
         data = {}
         if format_type == 'image':        
@@ -197,23 +165,7 @@ class XSpider(scrapy.Spider):
                 'image_url': image_url,
             }
 
-            print("\n" + "="*30) 
-            print(f"RESULTADO ENCONTRADO:")
-            print(f"IMAGEN: {data['image_url']}")
-            print(f"TEXTO: {''.join(data['content'][:50])}...")
-            print("="*30 + "\n")
-
             if data['image_url']:
-                # folder_dir = self.imgs_dir
-                # if not os.path.exists(folder_dir):
-                #     os.makedirs(folder_dir, exist_ok=True)
-                # filename = os.path.basename(data['image_url'].split('/')[-1].split('?')[0])
-                # if '.' not in filename:
-                #     filename += '.png'
-
-                # complete_path = os.path.join(folder_dir, filename)
-                # if os.path.exists(complete_path):
-                #     filename = os.path.basename(uuid.uuid4().hex + '_' + filename)
                 print(f"Descargando imagen en: {complete_path} ")
                 complete_path = response.meta.get("save_path")
                 self.download_image(data['image_url'], complete_path)
@@ -232,12 +184,6 @@ class XSpider(scrapy.Spider):
                         'content': response.css('div[data-testid="tweetText"] ::text').getall(),
                         'video_url': video_url,
                     }
-
-                    print("\n" + "="*30)
-                    print(f"RESULTADO ENCONTRADO:")
-                    print(f"VIDEO: {data['video_url']}")
-                    print(f"TEXTO: {''.join(data['content'][:50])}...")
-                    print("="*30 + "\n")
                     
                 except Exception as e:
                     print(f"Error al extraer video con yt-dlp: {e}")
@@ -264,12 +210,6 @@ class XSpider(scrapy.Spider):
                         'content': info_dict.get('description', '') or response.css('meta[name="description"]::attr(content)').get() or '',
                         'video_url': video_url,
                     }
-
-                    print("\n" + "="*30)
-                    print(f"RESULTADO ENCONTRADO:")
-                    print(f"VIDEO: {data['video_url']}")
-                    print(f"TEXTO: {data['content'][:50]}...")
-                    print("="*30 + "\n")
                     
                 except Exception as e:
                     print(f"Error al extraer video de YouTube con yt-dlp: {e}")
@@ -293,12 +233,6 @@ class XSpider(scrapy.Spider):
                         'content': info_dict.get('description', '') or response.css('meta[name="description"]::attr(content)').get() or '',
                         'video_url': video_url,
                     }
-
-                    print("\n" + "="*30)
-                    print(f"RESULTADO ENCONTRADO:")
-                    print(f"VIDEO: {data['video_url']}")
-                    print(f"TEXTO: {data['content'][:50]}...")
-                    print("="*30 + "\n")
                     
                 except Exception as e:
                     print(f"Error al extraer video de Facebook con yt-dlp: {e}")
@@ -320,24 +254,8 @@ class XSpider(scrapy.Spider):
                 'content': response.css('div[data-testid="post_message"] ::text').getall(),
                 'image_url': image_url,
             }
-            print("\n" + "="*30) 
-            print(f"RESULTADO ENCONTRADO:")
-            print(f"IMAGEN: {data['image_url']}")
-            print(f"TEXTO: {''.join(data['content'][:50])}...")
-            print("="*30 + "\n")
 
             if data['image_url']:
-                # folder_dir = self.imgs_dir
-                # if not os.path.exists(folder_dir):
-                #     os.makedirs(folder_dir, exist_ok=True)
-                # filename = os.path.basename(data['image_url'].split('/')[-1].split('?')[0])
-                # if '.' not in filename:
-                #     filename += '.png'
-
-                # complete_path = os.path.join(folder_dir, filename)
-                # if os.path.exists(complete_path):
-                #     filename = os.path.basename(uuid.uuid4().hex + '_' + filename)
-
                 complete_path = response.meta.get("save_path")
                 print(f"Descargando imagen en: {complete_path} ")
                 
@@ -357,12 +275,6 @@ class XSpider(scrapy.Spider):
                         'content': response.css('div[data-testid="post_message"] ::text').getall(),
                         'video_url': video_url,
                     }
-
-                    print("\n" + "="*30)
-                    print(f"RESULTADO ENCONTRADO:")
-                    print(f"VIDEO: {data['video_url']}")
-                    print(f"TEXTO: {''.join(data['content'][:50])}...")
-                    print("="*30 + "\n")
                     
                 except Exception as e:
                     print(f"Error al extraer video de Instagram con yt-dlp: {e}")
@@ -384,23 +296,13 @@ class XSpider(scrapy.Spider):
                 'image_url': image_url,
             }
 
-            print("\n" + "="*30) 
-            print(f"RESULTADO ENCONTRADO:")
-            print(f"IMAGEN: {data['image_url']}")
-            print(f"TEXTO: {''.join(data['content'][:50])}...")
-            print("="*30 + "\n")
+            # print("\n" + "="*30) 
+            # print(f"RESULTADO ENCONTRADO:")
+            # print(f"IMAGEN: {data['image_url']}")
+            # print(f"TEXTO: {''.join(data['content'][:50])}...")
+            # print("="*30 + "\n")
 
             if data['image_url']:
-                # folder_dir = self.imgs_dir
-                # if not os.path.exists(folder_dir):
-                #     os.makedirs(folder_dir, exist_ok=True)
-                # filename = os.path.basename(data['image_url'].split('/')[-1].split('?')[0])
-                # if '.' not in filename:
-                #     filename += '.png'
-
-                # complete_path = os.path.join(folder_dir, filename)
-                # if os.path.exists(complete_path):
-                #     filename = os.path.basename(uuid.uuid4().hex + '_' + filename)
                 print(f"Descargando imagen en: {complete_path} ")
                 complete_path = response.meta.get("save_path")
                 self.download_image(data['image_url'], complete_path)
@@ -419,12 +321,6 @@ class XSpider(scrapy.Spider):
                         'content': response.css('div[data-testid="tweetText"] ::text').getall(),
                         'video_url': video_url,
                     }
-
-                    print("\n" + "="*30)
-                    print(f"RESULTADO ENCONTRADO:")
-                    print(f"VIDEO: {data['video_url']}")
-                    print(f"TEXTO: {''.join(data['content'][:50])}...")
-                    print("="*30 + "\n")
                     
                 except Exception as e:
                     print(f"Error al extraer video con yt-dlp: {e}")

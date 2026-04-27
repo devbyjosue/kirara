@@ -11,7 +11,7 @@ from modules.database import init_database, list_downloads, normalize_platform, 
 from utils.identify_domain import identify_domain
 
 
-app = FastAPI()
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 origins = [
     "http://localhost",
