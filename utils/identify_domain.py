@@ -1,21 +1,33 @@
 
+from urllib.parse import urlparse
 
 
 def identify_domain(url):
-    # print(f"URL recibida para identificación: {url}")
-    raw_domain = url.split('//')[1].split('/')[0]
-    domain = raw_domain.replace('www.', '').split('.')[0].lower()
-    print(f"Dominio identificado ------------------------>: {domain}")
-    if domain == 'twitter' or domain == 'x' in url:
-        return 'x'
-    elif domain == 'instagram' in url:
-        return 'instagram'
-    elif 'facebook' in url:
-        return 'facebook'
-    elif domain == 'tiktok' in url:
-        return 'tiktok'
-    elif domain == 'youtube' in url:
-        return 'youtube'
-    else:
-        return 'unknown'
+    if not isinstance(url, str) or not url.strip():
+        return "unknown"
+
+    candidate = url.strip()
+    if "//" not in candidate:
+        candidate = f"https://{candidate}"
+
+    try:
+        parsed = urlparse(candidate)
+    except ValueError:
+        return "unknown"
+
+    host = (parsed.netloc or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+
+    if "twitter.com" in host or host == "x.com" or host.endswith(".x.com"):
+        return "x"
+    if "instagram.com" in host:
+        return "instagram"
+    if "facebook.com" in host or "fb.watch" in host:
+        return "facebook"
+    if "tiktok.com" in host:
+        return "tiktok"
+    if "youtube.com" in host or "youtu.be" in host:
+        return "youtube"
+    return "unknown"
     
