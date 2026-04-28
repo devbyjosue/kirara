@@ -43,10 +43,15 @@ def init_database() -> None:
                 file_format TEXT NOT NULL,
                 file_type TEXT NOT NULL,
                 platform TEXT NOT NULL,
-                downloaded_at TEXT NOT NULL
+                downloaded_at TEXT NOT NULL,
+                is_cached BOOLEAN DEFAULT 0
             );
             """
         )
+        try:
+            conn.execute("ALTER TABLE downloads ADD COLUMN is_cached BOOLEAN DEFAULT 0;")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS download_totals (
@@ -116,6 +121,22 @@ def _prune_platform_history(cursor: sqlite3.Cursor, platform: str, keep_latest: 
     )
 
 
+def get_latest_title(url: str) -> str | None:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT title
+            FROM downloads
+            WHERE url = ? AND title IS NOT NULL
+            ORDER BY downloaded_at DESC
+            LIMIT 1;
+            """,
+            (url,)
+        )
+        row = cursor.fetchone()
+        return row["title"] if row else None
+
 def record_download(
     *,
     name: str,
@@ -125,6 +146,7 @@ def record_download(
     file_type: str,
     platform: str,
     downloaded_at: str | None = None,
+    is_cached: bool = False,
 ) -> dict[str, Any]:
     timestamp = downloaded_at or _utc_now_iso()
     normalized_platform = normalize_platform(platform)
@@ -143,9 +165,10 @@ def record_download(
                 file_format,
                 file_type,
                 platform,
-                downloaded_at
+                downloaded_at,
+                is_cached
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
             """,
             (
                 name,
@@ -156,6 +179,7 @@ def record_download(
                 file_type,
                 normalized_platform,
                 timestamp,
+                is_cached,
             ),
         )
         download_id = int(cursor.lastrowid)
@@ -173,6 +197,7 @@ def record_download(
         "file_type": file_type,
         "platform": normalized_platform,
         "downloaded_at": timestamp,
+        "is_cached": is_cached,
     }
 
 
@@ -180,23 +205,24 @@ def list_downloads(platform: str | None = None, limit: int = 10) -> list[dict[st
     normalized_platform = normalize_platform(platform) if platform else None
     query = """
         SELECT
-            id,
-            name,
-            title,
-            url,
-            download_count,
-            file_format,
-            file_type,
-            platform,
-            downloaded_at
-        FROM downloads
+        id,
+        name,
+        title,
+        url,
+        download_count,
+        file_format,
+        file_type,
+        platform,
+        MAX(downloaded_at) AS downloaded_at,
+        is_cached
+    FROM downloads
     """
     params: list[Any] = []
     if normalized_platform:
         query += " WHERE platform = ?"
         params.append(normalized_platform)
 
-    query += " ORDER BY downloaded_at DESC, id DESC LIMIT ?"
+    query += "GROUP BY url ORDER BY downloaded_at DESC, id DESC LIMIT ?"
     params.append(limit)
 
     with get_connection() as conn:

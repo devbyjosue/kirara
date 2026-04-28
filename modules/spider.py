@@ -100,7 +100,6 @@ class XSpider(scrapy.Spider):
                                 ],
                                 "format_type": format_t,
                                 "save_path": request.get('save_path')
-
                             }
                         )
                     case 'tiktok':

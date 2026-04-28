@@ -7,7 +7,7 @@ from fastapi import FastAPI, BackgroundTasks
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Query
-from modules.database import init_database, list_downloads, normalize_platform, record_download
+from modules.database import init_database, list_downloads, normalize_platform, record_download, get_latest_title
 from utils.identify_domain import identify_domain
 
 
@@ -71,13 +71,15 @@ def remove_file(path: str):
     if os.path.exists(path):
         os.remove(path)
 
+import hashlib
+
 @app.post("/download")
 def download(data: dict, background_tasks: BackgroundTasks):
-    unique_id = uuid.uuid4().hex
-
     url = (data.get("url", "") or "").strip()
     if not url:
         return {"message": "URL is required"}
+
+    unique_id = hashlib.md5(url.encode()).hexdigest()
 
     platform = _resolve_platform(url)
 
@@ -94,20 +96,23 @@ def download(data: dict, background_tasks: BackgroundTasks):
     target_filename = f"{unique_id}.{ext}"
     target_path = os.path.join(folder, target_filename)
 
-    raw_data = {
-        "url": url,
-        "platform": platform,
-        "file_type": file_type,
-        "file_format": ext,
-        "save_path": target_path
-    }
+    is_cached = os.path.exists(target_path)
+    
+    if not is_cached:
+        raw_data = {
+            "url": url,
+            "platform": platform,
+            "file_type": file_type,
+            "file_format": ext,
+            "save_path": target_path
+        }
 
-    run_spider([raw_data])
-    if not os.path.exists(target_path):
-        return {"message": "Video not found"}
+        run_spider([raw_data])
+        if not os.path.exists(target_path):
+            return {"message": "Video not found"}
 
     downloaded_at = datetime.now(timezone.utc).isoformat()
-    title = _extract_scraped_title()
+    title = get_latest_title(url) if is_cached else _extract_scraped_title()
     record_download(
         name=target_filename,
         title=title,
@@ -116,9 +121,10 @@ def download(data: dict, background_tasks: BackgroundTasks):
         file_type=file_type,
         platform=platform,
         downloaded_at=downloaded_at,
+        is_cached=is_cached
     )
 
-    background_tasks.add_task(remove_file, target_path)
+    # background_tasks.add_task(remove_file, target_path)
     
     media_type = f"video/{ext}" if file_type == "video" else f"image/{ext}"
     return FileResponse(target_path, media_type=media_type, filename=target_filename)
@@ -174,6 +180,8 @@ sample = [
     #     'file_format': 'mp4'
     # }
 ]
+
+
 def main():
     run_spider(sample)
 
